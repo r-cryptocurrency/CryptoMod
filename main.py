@@ -11,18 +11,20 @@ import re
 import time
 import json
 import requests
+import datetime
 from storage import SRC
+import userdata
 
 BOT_START_TIME = 1521376589.2023768
 
 
 
-settings = {'referrals':[], 'tempban': None, 'agemin': None, 'postmin': None, 'lastUpdated': 0, 'source':''}
+settings = {'referrals':[], 'tempban': 7, 'agemin': 365, 'postmin': 100, 'lastUpdated': 0, 'source':''}
 settings['source'] = SRC
 def containsReferral(text):
     return bool(re.search(settings['referrals'], text))
 
-r = praw.Reddit()
+r = praw.Reddit(client_id=userdata.client_id, client_secret=userdata.client_secret, user_agent=userdata.user_agent, username=userdata.username, password=userdata.password)
                      
 
 SUBREDDIT = 'CryptoCurrency' #subreddit to run in
@@ -53,7 +55,7 @@ def checkHot(htps, LIMIT, token):
                 all_hot.remove(post.id)
         hot_posts[token][:] = list(set(hot_posts[token]).intersection(all_hot))
             
-def handleBan(datapt, user): 
+def handleBan(datapt, user, permalink): 
     if not datapt.saved:
         datapt.save()
         datapt.mod.remove()
@@ -61,14 +63,14 @@ def handleBan(datapt, user):
         age = (float(time.time()) - float(datapt.author.created_utc)) / (60*60*24) #days 
         
         if age < settings['agemin'] or prev_contributions < settings['postmin']:
-            r.subreddit(SUBREDDIT).banned.add(datapt.author, ban_message="Referral links are not allowed in /r/CryptoCurrency!", duration=30)
+            r.subreddit(SUBREDDIT).banned.add(datapt.author, ban_message="Referral links ({}) are not allowed in /r/CryptoCurrency!".format(permalink), ban_reason="Referral links ({}) are not allowed in /r/CryptoCurrency!".format(permalink), duration=30)
         else:
-            r.subreddit(SUBREDDIT).banned.add(datapt.author, ban_message="Referral links are not allowed in /r/CryptoCurrency!", duration=settings['tempban'])
+            r.subreddit(SUBREDDIT).banned.add(datapt.author, ban_message="Referral links ({}) are not allowed in /r/CryptoCurrency!".format(permalink), ban_reason="Referral links ({}) are not allowed in /r/CryptoCurrency!", duration=settings['tempban'])
 
 def banReferrals():
     for comment in r.subreddit(SUBREDDIT).comments(limit=100):
         if containsReferral(comment.body.lower()):
-            handleBan(comment, comment.author.name)
+            handleBan(comment, comment.author.name, comment.permalink)
     for post in r.subreddit(SUBREDDIT).new(limit=50):
         sftext = ''
         if hasattr(post, 'crosspost_parent'):
@@ -76,7 +78,7 @@ def banReferrals():
         else:
             sftext = post.selftext
         if containsReferral(str(sftext)+str(post.title)+str(post.url)):
-            handleBan(post, post.author.name)
+            handleBan(post, post.author.name, post.url)
             
 def parseWikiPage(source):
     banned_links, ban_data = source.split('---')[1:]
@@ -153,21 +155,37 @@ def limitCoins(hot_pts, all_coins):
     sorted_triples = sorted(triples, key=lambda x: float(x[0].created_utc))
     if len(triples) == 0:
         return
-    sorted_triples[-1][0].mod.remove()
-    s = sorted_triples[-1][0].reply('''Thank you for submitting to /r/{0},\n\nYour post has been
-    removed because there are already 2 posts about this coin on the front page.
-    \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
-            this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
-            questions or concerns.*'''.format(SUBREDDIT))
-    s.mod.distinguish(how='yes', sticky=True)
+    s = sorted_triples[-1][0]
+    if s.link_flair_text != None:
+        if "mod approved" in s.link_flair_text.lower() or "developing" in s.link_flair_text.lower() or "*" in s.link_flair_text.lower():
+            pass
+        else:
+            s.mod.remove()
+            s.reply('''Thank you for submitting to /r/{0},\n\nYour post has been
+            removed because there are already 2 posts about this coin on the front page.
+            \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
+                    this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
+                    questions or concerns.*'''.format(SUBREDDIT))
+            s.mod.distinguish(how='yes', sticky=True)
+    else: 
+        s.mod.remove()
+        s.reply('''Thank you for submitting to /r/{0},\n\nYour post has been
+        removed because there are already 2 posts about this coin on the front page.
+        \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
+                this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
+                questions or concerns.*'''.format(SUBREDDIT))
+        s.mod.distinguish(how='yes', sticky=True)
         
         
-def removeAllComedy(new_pts):
-    print(new_pts)
+def removeAllComedy(new_pts, ht_cc):
+    # print(new_pts)
+    print("Removing comedy")
+    day = datetime.datetime.today().weekday()
     for post in new_pts:
         if float(post.created_utc) - float(BOT_START_TIME) > 0:
             if post.link_flair_text != None:
-                if post.link_flair_text.lower() == "comedy":
+                if post.link_flair_text.lower() == "comedy" and day not in [4,5,6]:
+                #if post.link_flair_text.lower() == "comedy":
                     print("HERE")
                     post.mod.remove()
                     post.reply("""Hello! 
@@ -176,19 +194,43 @@ Thank you for your submission - Please feel free to re-submit your post to our d
         
 ----
         
-Memes and Comedy posts are now considered low quality content on this subreddit and will be removed. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
-            if post.url != None:
-                if ".png" in post.url[-5:] or ".jpg" in post.url[-5:] or ".jpeg" in post.url[:-5]:
-                    post.mod.remove()
-                elif ".gif" in post.url[-5:] or ".gifv" in post.url[-5:] or "gfycat" in post.url or "v.redd.it" in post.url:
-                    post.mod.remove()
-                    post.reply("""Hello! 
+Memes and Comedy posts are now considered low quality content on this subreddit and will be removed, except for on the weekends (UTC time). Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
+    comlist = []
+    for post in ht_cc:
+        if post.link_flair_text !=None:
+            print(post.fullname, post.link_flair_text.lower())
+            if post.link_flair_text.lower() == "comedy" and day in [4,5,6]:
+                comlist.append(post)
+    print("Lenght of comlist is: {}".format(len(comlist)))
+    sorted_comlist = sorted(comlist, key=lambda x: float(x.created_utc))
+    print("Lenght of sorted_comlist is: {}".format(len(sorted_comlist)))
+    for idx,val in enumerate(sorted_comlist):
+        print(idx, val.link_flair_text.lower(), val.created_utc)
+        if idx > 1:
+            print("Removing {}".format(val.fullname))
+            val.mod.remove()
+            val.reply("""Hello! 
         
 Thank you for your submission - Please feel free to re-submit your post to our dedicated fun subreddit r/cryptocurrencymemes.
         
 ----
         
-Memes and Comedy posts are now considered low quality content on this subreddit and will be removed. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban.\n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
+Memes and Comedy posts are now considered low quality content on this subreddit and will be removed, except for on the weekends (UTC time), and only two comedy posts will be allowed in the top 25 at any time. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
+ 
+ 
+
+#             if post.url != None:
+#                 if ".png" in post.url[-5:] or ".jpg" in post.url[-5:] or ".jpeg" in post.url[:-5]:
+#                     post.mod.remove()
+#                 elif ".gif" in post.url[-5:] or ".gifv" in post.url[-5:] or "gfycat" in post.url or "v.redd.it" in post.url:
+#                     post.mod.remove()
+#                     post.reply("""Hello! 
+#         
+# Thank you for your submission - Please feel free to re-submit your post to our dedicated fun subreddit r/cryptocurrencymemes.
+#         
+# ----
+#         
+# Memes and Comedy posts are now considered low quality content on this subreddit and will be removed. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban.\n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
 def getCALL():
     pure = json.loads(requests.get('https://api.coinmarketcap.com/v1/ticker/?limit=0').text)
     parsed = [x['name'] for x in pure] + [x['symbol'] for x in pure]
@@ -221,7 +263,7 @@ while True:
         all_coins = tlist_coins[0]
         pst = purifyList(list(r.subreddit('CryptoCurrency').new(limit=500)))
         ht_cc = purifyList(list(r.subreddit('CryptoCurrency').hot(limit=25)))
-        removeAllComedy(pst)
+        removeAllComedy(pst, ht_cc)
         removeDuplicates(pst)
         limitCoins(ht_cc, all_coins)
         ban_from_logs()
