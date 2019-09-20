@@ -233,6 +233,7 @@ Memes and Comedy posts are now considered low quality content on this subreddit 
 # Memes and Comedy posts are now considered low quality content on this subreddit and will be removed. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban.\n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
 def getCALL():
     pure = json.loads(requests.get('https://api.coinmarketcap.com/v1/ticker/?limit=0').text)
+    pure = pure[1:]
     parsed = [x['name'] for x in pure] + [x['symbol'] for x in pure]
     return parsed
     
@@ -242,7 +243,7 @@ def ban_from_logs():
     for log in r.subreddit("cryptocurrency").mod.log(limit=100):
         if 'section 1a' in str(log.details).lower() and log.id not in done_log_ids:
             done_log_ids.append(log.id)
-            r.subreddit("cryptocurrency").banned.add(log.target_author, ban_message="Referral links are not allowed in /r/CryptoCurrency!\n\n>{0}".format('https://www.reddit.com'+log.target_permalink), ban_reason="Banned by /u/CryptoModBot")
+            r.subreddit("cryptocurrency").banned.add(log.target_author, ban_message="Referral links are not allowed in /r/CryptoCurrency!\n\n>{0}".format('https://www.reddit.com'+log.target_permalink), ban_reason="Banned by /u/CryptoMods")
 
 
 def purifyList(plist):
@@ -271,4 +272,5 @@ while True:
         #banReferrals()
     except Exception as e:
         print(str(e))
+    time.sleep(180)
 
