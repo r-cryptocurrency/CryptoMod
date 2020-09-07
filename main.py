@@ -12,12 +12,18 @@ import time
 import json
 import requests
 import datetime
+import logging
+import logging.config
 from storage import SRC
 import userdata
 
 BOT_START_TIME = 1521376589.2023768
 
-
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': True,
+    })
+logging.basicConfig(filename='/home/jw/CryptoMod/cryptomod.log', level=logging.DEBUG)
 
 settings = {'referrals':[], 'tempban': 7, 'agemin': 365, 'postmin': 100, 'lastUpdated': 0, 'source':''}
 settings['source'] = SRC
@@ -157,7 +163,7 @@ def limitCoins(hot_pts, all_coins):
         return
     s = sorted_triples[-1][0]
     if s.link_flair_text != None:
-        if "mod approved" in s.link_flair_text.lower() or "developing" in s.link_flair_text.lower() or "*" in s.link_flair_text.lower():
+        if "ama" in s.link_flair_text.lower() or "event" in s.link_flair_text.lower() or "mod approved" in s.link_flair_text.lower() or "developing" in s.link_flair_text.lower() or "*" in s.link_flair_text.lower():
             pass
         else:
             s.mod.remove()
@@ -166,48 +172,48 @@ def limitCoins(hot_pts, all_coins):
             \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
                     this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
                     questions or concerns.*'''.format(SUBREDDIT))
-            s.mod.distinguish(how='yes', sticky=True)
-    else: 
-        s.mod.remove()
-        s.reply('''Thank you for submitting to /r/{0},\n\nYour post has been
-        removed because there are already 2 posts about this coin on the front page.
-        \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
-                this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
-                questions or concerns.*'''.format(SUBREDDIT))
-        s.mod.distinguish(how='yes', sticky=True)
+            # s.mod.distinguish(how='yes', sticky=True)
+#    else: 
+#        s.mod.remove()
+#        s.reply('''Thank you for submitting to /r/{0},\n\nYour post has been
+#        removed because there are already 2 posts about this coin on the front page.
+#        \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of 
+#                this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any 
+#                questions or concerns.*'''.format(SUBREDDIT))
+#        s.mod.distinguish(how='yes', sticky=True)
         
         
 def removeAllComedy(new_pts, ht_cc):
     # print(new_pts)
-    print("Removing comedy")
     day = datetime.datetime.today().weekday()
-    for post in new_pts:
-        if float(post.created_utc) - float(BOT_START_TIME) > 0:
-            if post.link_flair_text != None:
-                if post.link_flair_text.lower() == "comedy" and day not in [4,5,6]:
-                #if post.link_flair_text.lower() == "comedy":
-                    print("HERE")
-                    post.mod.remove()
-                    post.reply("""Hello! 
-        
-Thank you for your submission - Please feel free to re-submit your post to our dedicated fun subreddit r/cryptocurrencymemes.
-        
-----
-        
-Memes and Comedy posts are now considered low quality content on this subreddit and will be removed, except for on the weekends (UTC time). Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
+    # for post in new_pts:
+    #     if float(post.created_utc) - float(BOT_START_TIME) > 0:
+    #         if post.link_flair_text != None:
+    #             if post.link_flair_text.lower() == "comedy" and day not in [4,5,6]:
+    #             #if post.link_flair_text.lower() == "comedy":
+    #                 print("HERE")
+    #                 post.mod.remove()
+    #                 post.reply("""Hello! 
+    #     
+# Thank you for your submission - Please feel free to re-submit your post to our dedicated fun subreddit r/cryptocurrencymemes.
+#          
+# ---- 
+#          
+# Memes and Comedy posts are now considered low quality content on this subreddit and will be removed, except for on the weekends (UTC time).  \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
     comlist = []
     for post in ht_cc:
         if post.link_flair_text !=None:
-            print(post.fullname, post.link_flair_text.lower())
-            if post.link_flair_text.lower() == "comedy" and day in [4,5,6]:
+            if post.link_flair_text.lower() == "comedy": 
+                #logging.debug("Comedy post title: %s  and  full name is: %s on day %s", str(post.title), str(post.fullname), str(day))
+                #if day in [4,5,6]:
                 comlist.append(post)
-    print("Lenght of comlist is: {}".format(len(comlist)))
+    logging.debug(("Lenght of comlist is: {}".format(len(comlist))))
     sorted_comlist = sorted(comlist, key=lambda x: float(x.created_utc))
-    print("Lenght of sorted_comlist is: {}".format(len(sorted_comlist)))
     for idx,val in enumerate(sorted_comlist):
+        logging.debug(idx, val)
         print(idx, val.link_flair_text.lower(), val.created_utc)
-        if idx > 1:
-            print("Removing {}".format(val.fullname))
+        if (idx > 1 and day in [0,1,2,3,4]) or (idx > 4 and day in [5, 6]):
+            logging.debug("Removing {}".format(val.fullname))
             val.mod.remove()
             val.reply("""Hello! 
         
@@ -215,7 +221,7 @@ Thank you for your submission - Please feel free to re-submit your post to our d
         
 ----
         
-Memes and Comedy posts are now considered low quality content on this subreddit and will be removed, except for on the weekends (UTC time), and only two comedy posts will be allowed in the top 25 at any time. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
+Memes and Comedy posts are now considered low quality content on this subreddit and will be removed except for two posts during the week and five posts on the weekends (UTC time) in the top 25 posts. You may try to resubmit your post at a later time. \n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(sticky=True)
  
  
 
@@ -232,8 +238,8 @@ Memes and Comedy posts are now considered low quality content on this subreddit 
 #         
 # Memes and Comedy posts are now considered low quality content on this subreddit and will be removed. Repeated attempts to post this type of content on r/cryptocurrency will lead to a subreddit suspension and possibly a ban.\n\n*I am a bot, and this action was performed automatically. Please contact the [moderators of this subreddit](https://www.reddit.com/message/compose?to=%2Fr%2F{0}) if you have any questions or concerns.*""").mod.distinguish(how='yes', sticky=True)
 def getCALL():
-    pure = json.loads(requests.get('https://api.coinmarketcap.com/v1/ticker/?limit=0').text)
-    pure = pure[1:]
+    pure = json.loads(requests.get('https://api.coinpaprika.com/v1/coins').text)
+    pure = pure[1:100]
     parsed = [x['name'] for x in pure] + [x['symbol'] for x in pure]
     return parsed
     
@@ -250,27 +256,42 @@ def purifyList(plist):
     moderators = [str(l).lower() for l in plist[0].subreddit.moderator()]
     return list(filter(lambda x: not (x.stickied or str(x.author).lower() in moderators), plist))
     
+karma_exceptions = ["Blockfolio", "coinmetrics"]
+def karmaLimiter(ht_cc):
+    for post in ht_cc:
+        try: 
+            if (post.author.comment_karma < 500 or (time.time() - post.author.created) < 4320000) and post.author.name not in karma_exceptions:
+                if post.link_flair_text != None:
+                    if "mod approved" in post.link_flair_text.lower() or "developing" in post.link_flair_text.lower() or "*" in post.link_flair_text.lower():
+                        pass
+                    else:
+                        post.mod.remove()
+                        post.reply("Hello, your post was removed because your account is less than 50 days old or you do not have the required 500 comment karma to make post submissions.").mod.distinguish(how='yes', sticky=True)
+                        print("***REMOVING FOR TOO LITTLE KARMA OR AGE***")
+        except:
+            print("Deleted account")
+
 
 tlist_coins = ['']
 last_got = [0]
 
-
     
 while True:
-    try:
-        if float(time.time()) - float(last_got[0]) > 300:
-            last_got[0] = time.time()
-            tlist_coins[0] = getCALL()
-        all_coins = tlist_coins[0]
-        pst = purifyList(list(r.subreddit('CryptoCurrency').new(limit=500)))
-        ht_cc = purifyList(list(r.subreddit('CryptoCurrency').hot(limit=25)))
-        removeAllComedy(pst, ht_cc)
-        removeDuplicates(pst)
-        limitCoins(ht_cc, all_coins)
-        ban_from_logs()
+    #try:
+    if float(time.time()) - float(last_got[0]) > 300:
+        last_got[0] = time.time()
+        tlist_coins[0] = getCALL()
+    all_coins = tlist_coins[0]
+    pst = purifyList(list(r.subreddit('CryptoCurrency').new(limit=500)))
+    ht_cc = purifyList(list(r.subreddit('CryptoCurrency').hot(limit=25)))
+    removeAllComedy(pst, ht_cc)
+    removeDuplicates(pst)
+    limitCoins(ht_cc, all_coins)
+    karmaLimiter(ht_cc)
+    ban_from_logs()
         #updateSettings()
         #banReferrals()
-    except Exception as e:
-        print(str(e))
+    #except Exception as e:
+    #    print(str(e))
     time.sleep(180)
 
